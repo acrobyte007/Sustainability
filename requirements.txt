@@ -4,3 +4,4 @@ pinecone
 spacy
 rank-bm25
 python-dotenv
+psycopg2
