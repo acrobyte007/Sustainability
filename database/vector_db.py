@@ -97,7 +97,7 @@ async def _query_single_doc(index, user_id: str, vector, doc_id: str):
             index.query,
             namespace=user_id,
             vector=vector,
-            top_k=30,
+            top_k=50,
             filter={"document_id": {"$eq": doc_id}},
             include_metadata=True,
             include_values=False
