@@ -1,1 +1,6 @@
 sentence-transformers
+bm25
+pinecone
+spacy
+rank-bm25
+python-dotenv

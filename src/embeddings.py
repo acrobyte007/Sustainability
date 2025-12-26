@@ -12,6 +12,8 @@ async def embed_sentences(sentences):
     return embeddings.tolist()
 
 
+##-----------------##
+
 async def main():
     sentences = [
         "This is an example sentence",
