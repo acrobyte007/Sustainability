@@ -12,18 +12,3 @@ async def embed_sentences(sentences):
     return embeddings.tolist()
 
 
-##-----------------##
-
-async def main():
-    sentences = [
-        "This is an example sentence",
-        "Each sentence is converted"
-    ]
-
-    vectors = await embed_sentences(sentences)
-
-    print("Number of sentences:", len(vectors))
-    print("Embedding dimension:", len(vectors[0]))
-    print("First vector sample:", vectors[0][:5])
-
-asyncio.run(main())

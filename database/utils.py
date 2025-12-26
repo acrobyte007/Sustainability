@@ -9,7 +9,7 @@ _english_nlp = None
 _nlp_lock = asyncio.Lock()
 
 
-# ---------------- SPAcy Loader ----------------
+
 async def get_spacy_nlp():
     global _english_nlp
     if _english_nlp is None:
@@ -34,7 +34,6 @@ async def get_english_lemmas(text: str) -> List[str]:
         return []
 
 
-# ---------------- BM25 Hybrid Ranker ----------------
 async def get_top_chunks_with_bm25(
     chunk_texts,
     chunk_ids,
@@ -44,23 +43,17 @@ async def get_top_chunks_with_bm25(
 
     if not chunk_texts:
         return [], [], []
-
-    # normalize sizes defensively
     n = min(len(chunk_texts), len(chunk_ids), len(distances))
     chunk_texts = chunk_texts[:n]
     chunk_ids = chunk_ids[:n]
     distances = distances[:n]
 
-    # tokenize chunks asynchronously
     tokenized_chunks = await asyncio.gather(
         *[get_english_lemmas(text or "") for text in chunk_texts]
     )
-
-    # tokenize query
     query_tokens = await get_english_lemmas(query or "")
 
     def _rank(tokenized_chunks, query_tokens):
-        # fallback if all chunks empty
         if not any(tokenized_chunks):
             similarity_scores = 1 - np.array(distances, dtype=float)
             return chunk_texts, chunk_ids, similarity_scores.tolist()
@@ -68,30 +61,20 @@ async def get_top_chunks_with_bm25(
         bm25 = BM25Okapi(tokenized_chunks)
 
         bm25_scores = np.array(bm25.get_scores(query_tokens), dtype=float)
-
-        # normalize safely
         max_score = max(float(bm25_scores.max()), 1e-6)
         bm25_scores = bm25_scores / max_score
 
         similarity_scores = 1 - np.array(distances, dtype=float)
-
-        # hybrid score
         hybrid_scores = 0.7 * similarity_scores + 0.3 * bm25_scores
 
-        # assemble structured results
         results = np.array([
             (text, cid, float(score))
             for text, cid, score in zip(chunk_texts, chunk_ids, hybrid_scores)
         ], dtype=object)
 
-        # dedupe by chunk id (keep first occurrence)
         _, unique_indices = np.unique(results[:, 1], return_index=True)
         results = results[sorted(unique_indices)]
-
-        # sort highest → lowest
         results = results[np.argsort(results[:, 2])[::-1]]
-
-        # cap at top 9 (like your original intent)
         results = results[:9]
 
         ranked_chunks = [r[0] for r in results]
