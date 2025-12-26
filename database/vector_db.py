@@ -1,16 +1,32 @@
 import os
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
+CURRENT = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT.parents[1]
+sys.path.append(str(PROJECT_ROOT))
+load_dotenv(PROJECT_ROOT / ".env")
+
 from typing import List, Dict, Any, Tuple
 from pinecone import Pinecone, PineconeException
 import asyncio
-import time
 import logging
 from database.utils import get_top_chunks_with_bm25
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
+
 
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
 index_name = "index"
+
+if not pinecone_api_key:
+    raise RuntimeError("PINECONE_API_KEY not found — check your .env file")
+
 
 _pc = None
 _index = None
@@ -40,7 +56,11 @@ async def get_index():
     return _index
 
 
-async def upsert_document_vectors( namespace: str, document_id: str, vectors: List[List[float]], chunks: List[str]) -> Dict[str, Any]:
+
+async def upsert_document_vectors(namespace: str, document_id: str,
+                                  vectors: List[List[float]],
+                                  chunks: List[str]) -> Dict[str, Any]:
+
     vectors_to_upsert = [
         {
             "id": f"{document_id}#chunk{chunk_num}",
@@ -50,17 +70,18 @@ async def upsert_document_vectors( namespace: str, document_id: str, vectors: Li
                 "chunk_text": chunk_text
             }
         }
-        for chunk_num, (vector, chunk_text) in enumerate(zip(vectors, chunks), 1)
+        for chunk_num, (vector, chunk_text)
+        in enumerate(zip(vectors, chunks), 1)
     ]
 
     index = await get_index()
+
     try:
-        response = await asyncio.to_thread(
+        return await asyncio.to_thread(
             index.upsert,
             namespace=namespace,
             vectors=vectors_to_upsert
         )
-        return response
 
     except Exception as e:
         logger.error(
@@ -69,9 +90,10 @@ async def upsert_document_vectors( namespace: str, document_id: str, vectors: Li
         raise
 
 
-async def _query_single_doc(index, user_id: str, vector: List[float], doc_id: str):
+
+async def _query_single_doc(index, user_id: str, vector, doc_id: str):
     try:
-        result = await asyncio.to_thread(
+        return await asyncio.to_thread(
             index.query,
             namespace=user_id,
             vector=vector,
@@ -80,7 +102,6 @@ async def _query_single_doc(index, user_id: str, vector: List[float], doc_id: st
             include_metadata=True,
             include_values=False
         )
-        return result
 
     except PineconeException as e:
         logger.error(f"PineconeException for user_id={user_id}, doc_id={doc_id}: {e}")
@@ -90,58 +111,45 @@ async def _query_single_doc(index, user_id: str, vector: List[float], doc_id: st
         return None
 
 
-async def query_vector_index( user_id: str, vector: List[float], doc_ids: List[str], query: str) -> Tuple[List[str], List[str], List[float]]:
-
-    if not user_id:
-        logger.error("query_vector_index: user_id is empty")
-        return [], [], []
-    if not doc_ids:
-        logger.error("query_vector_index: doc_ids list is empty")
-        return [], [], []
-    if not vector:
-        logger.error("query_vector_index: query vector is empty")
-        return [], [], []
+async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: str):
 
     index = await get_index()
 
-    tasks = [
-        _query_single_doc(index, user_id, vector, doc_id)
-        for doc_id in doc_ids
-    ]
-
-    results = await asyncio.gather(*tasks)
+    results = await asyncio.gather(
+        *[_query_single_doc(index, user_id, vector, doc_id) for doc_id in doc_ids]
+    )
 
     all_matches = []
+
     for result in results:
-        if result and "matches" in result:
+        if not result:
+            continue
+        if hasattr(result, "matches"):
+            all_matches.extend(result.matches)
+        elif isinstance(result, dict) and "matches" in result:
             all_matches.extend(result["matches"])
 
     if not all_matches:
         logger.debug("No matches returned from Pinecone")
         return [], [], []
-
-    chunk_texts = []
-    chunk_ids = []
-    distances = []
+    chunk_texts, chunk_ids, distances = [], [], []
 
     for match in all_matches:
-        metadata = match.get("metadata", {})
+        metadata = getattr(match, "metadata", {}) or {}
         chunk_texts.append(metadata.get("chunk_text", ""))
-        chunk_ids.append(match.get("id", ""))
-        distances.append(match.get("score", 0.0))
-
-    ranked_chunks, ranked_ids, ranked_scores = get_top_chunks_with_bm25(
+        chunk_ids.append(getattr(match, "id", ""))
+        distances.append(getattr(match, "score", 0.0))
+    return await get_top_chunks_with_bm25(
         chunk_texts,
         chunk_ids,
         distances,
         query,
     )
-    return ranked_chunks, ranked_ids, ranked_scores
-
 
 async def delete_chunks(user_id: str, doc_id: str):
 
     index = await get_index()
+
     try:
         await asyncio.to_thread(
             index.delete,
@@ -154,3 +162,45 @@ async def delete_chunks(user_id: str, doc_id: str):
             f"Failed to delete chunks for document_id={doc_id}, namespace={user_id}: {e}"
         )
         raise
+
+
+
+##---------------TEST--------------------
+
+import random
+
+async def _run_manual_test():
+    user_id = "test_user"
+    document_id = "doc_1"
+    namespace = user_id
+
+    chunks = [
+        "This is the first chunk of text.",
+        "Here is another chunk of document text.",
+        "Final chunk for testing the index."
+    ]
+
+    vectors = [[random.random() for _ in range(768)] for _ in chunks]
+
+    print("\n--- UPSERTING CHUNKS ---")
+    print(await upsert_document_vectors(namespace, document_id, vectors, chunks))
+
+    query_vector = [random.random() for _ in range(768)]
+    query_text = "testing text retrieval"
+
+    print("\n--- QUERYING INDEX ---")
+    ranked_chunks, ranked_ids, ranked_scores = await query_vector_index(
+        user_id, query_vector, [document_id], query_text
+    )
+
+    print("Ranked chunks:", ranked_chunks)
+    print("Ranked ids:", ranked_ids)
+    print("Ranked scores:", ranked_scores)
+
+    print("\n--- DELETING CHUNKS ---")
+    await delete_chunks(user_id, document_id)
+    print("Delete complete\n--- TEST FINISHED OK ---")
+
+
+if __name__ == "__main__":
+    asyncio.run(_run_manual_test())
