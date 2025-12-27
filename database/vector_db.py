@@ -13,10 +13,10 @@ import logging
 from database.utils import get_top_chunks_with_bm25
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+import asyncio
+import logging
+from typing import List, Dict, Any
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,37 +56,48 @@ async def get_index():
 
 
 
-async def upsert_document_vectors(namespace: str, document_id: str,
-                                  vectors: List[List[float]],
-                                  chunks: List[str]) -> Dict[str, Any]:
 
+
+async def upsert_document_vectors(namespace: str,document_id: str,vectors: List[List[float]],chunks: List[Dict[str, Any]]):
     vectors_to_upsert = [
         {
-            "id": f"{document_id}#chunk{chunk_num}",
+            "id": f"{document_id}#p{c['page']}c{c['chunk_index']}",
             "values": vector,
             "metadata": {
                 "document_id": document_id,
-                "chunk_text": chunk_text
-            }
+                "page": c["page"],
+                "chunk_index": c["chunk_index"],
+                "chunk_text": c["text"],
+            },
         }
-        for chunk_num, (vector, chunk_text)
-        in enumerate(zip(vectors, chunks), 1)
+        for vector, c in zip(vectors, chunks)
     ]
 
     index = await get_index()
 
     try:
-        return await asyncio.to_thread(
+        result = await asyncio.to_thread(
             index.upsert,
             namespace=namespace,
             vectors=vectors_to_upsert
         )
+        logger.debug(
+            "Upserted %d vectors for document_id=%s in namespace=%s",
+            len(vectors_to_upsert),
+            document_id,
+            namespace
+        )
+        return result
 
     except Exception as e:
         logger.error(
-            f"Upsert failed for document_id={document_id}, namespace={namespace}: {e}"
+            "Upsert failed for document_id=%s, namespace=%s: %s",
+            document_id,
+            namespace,
+            e
         )
         raise
+
 
 
 
@@ -110,16 +121,13 @@ async def _query_single_doc(index, user_id: str, vector, doc_id: str):
         return None
 
 
-async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: str):
-
+async def query_vector_index( user_id: str,vector,doc_ids: List[str],query: str):
     index = await get_index()
-
     results = await asyncio.gather(
         *[_query_single_doc(index, user_id, vector, doc_id) for doc_id in doc_ids]
     )
 
     all_matches = []
-
     for result in results:
         if not result:
             continue
@@ -130,37 +138,62 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
 
     if not all_matches:
         logger.debug("No matches returned from Pinecone")
-        return [], [], []
-    chunk_texts, chunk_ids, distances = [], [], []
+        return []
 
+    candidates = {}
     for match in all_matches:
         metadata = getattr(match, "metadata", {}) or {}
-        chunk_texts.append(metadata.get("chunk_text", ""))
-        chunk_ids.append(getattr(match, "id", ""))
-        distances.append(getattr(match, "score", 0.0))
-    return await get_top_chunks_with_bm25(
-        chunk_texts,
-        chunk_ids,
+        match_id = getattr(match, "id", "").strip()
+        candidates[match_id] = {
+            "id": match_id,
+            "score": getattr(match, "score", 0.0),
+            "page": metadata.get("page"),
+            "chunk_index": metadata.get("chunk_index"),
+            "document_id": metadata.get("document_id"),
+            "chunk_text": metadata.get("chunk_text", ""),
+        }
+
+    if not candidates:
+        logger.debug("No valid candidates found")
+        return []
+    # ---------- BM25 re-ranking ----------
+    texts = [c["chunk_text"] for c in candidates.values()]
+    ids = [c["id"] for c in candidates.values()]
+    distances = [c["score"] for c in candidates.values()]
+
+    top_chunks = await get_top_chunks_with_bm25(
+        texts,
+        ids,
         distances,
         query,
     )
+    print(f"Top chunks: {top_chunks}")
+    if not top_chunks:
+        logger.debug("BM25 returned no top chunks")
+        return []
 
-async def delete_chunks(user_id: str, doc_id: str):
+    # ---------- convert back to structured chunks ----------
+    structured = []
 
-    index = await get_index()
+    for item in top_chunks:
+        if len(item) < 2:
+            continue
+        chunk_id = item[1]  # the second element is the ID
+        chunk_id_clean = chunk_id.strip()  # now this works
+        match = candidates.get(chunk_id_clean)
+        if not match:
+            logger.debug("Chunk ID %r not found in candidates", chunk_id_clean)
+            continue
 
-    try:
-        await asyncio.to_thread(
-            index.delete,
-            namespace=user_id,
-            filter={"document_id": {"$eq": doc_id}}
-        )
-
-    except Exception as e:
-        logger.error(
-            f"Failed to delete chunks for document_id={doc_id}, namespace={user_id}: {e}"
-        )
-        raise
+        structured.append({
+            "page": match["page"],
+            "chunk_index": match["chunk_index"],
+            "text": match["chunk_text"],
+            "document_id": match["document_id"],
+            "id": match["id"],
+            "score": match["score"],
+        })
 
 
-
+        print("Structured chunks: %s", structured)
+    return structured

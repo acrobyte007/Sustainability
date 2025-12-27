@@ -7,3 +7,7 @@ python-dotenv
 psycopg2
 pymupdf
 langchain_groq
+fastapi 
+"uvicorn[standard]"
+pydantic
+python-multipart

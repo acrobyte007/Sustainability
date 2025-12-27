@@ -22,7 +22,6 @@ async def get_spacy_nlp():
 
 
 async def get_english_lemmas(text: str) -> List[str]:
-    """Tokenize + lemmatize text safely"""
     if not text:
         return []
 
@@ -34,13 +33,7 @@ async def get_english_lemmas(text: str) -> List[str]:
         return []
 
 
-async def get_top_chunks_with_bm25(
-    chunk_texts,
-    chunk_ids,
-    distances,
-    query
-) -> Tuple[List[str], List[str], List[float]]:
-
+async def get_top_chunks_with_bm25(chunk_texts,chunk_ids,distances,query) -> Tuple[List[str], List[str], List[float]]:
     if not chunk_texts:
         return [], [], []
     n = min(len(chunk_texts), len(chunk_ids), len(distances))

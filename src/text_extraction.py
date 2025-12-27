@@ -5,23 +5,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
-async def chunk_words(words, size=500, overlap=75):
-    step = size - overlap
+chunk_size = 500
+overlap = 75
+async def chunk_words(words, ):
+    step = chunk_size - overlap
     chunk_index = 1
 
     for start in range(0, len(words), step):
-        end = start + size
+        end = start + chunk_size
         yield chunk_index, " ".join(words[start:end])
         chunk_index += 1
         await asyncio.sleep(0)
 
 
-async def extract_text_from_pdf(
-    pdf_path: Path,
-    chunk_size: int = 500,
-    overlap: int = 75
-) -> dict[tuple[int, int], str]:
+
+async def extract_text_from_pdf(pdf_path: Path) -> dict[tuple[int, int], str]:
 
     logger.info(f"Entering extract_text_from_pdf for file: {pdf_path}")
 
@@ -42,7 +40,7 @@ async def extract_text_from_pdf(
 
             words = text.split()
 
-            async for chunk_idx, chunk in chunk_words(words, chunk_size, overlap):
+            async for chunk_idx, chunk in chunk_words(words):
                 if not chunk.strip():
                     continue
 
