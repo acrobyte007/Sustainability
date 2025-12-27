@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 import asyncio
 from pathlib import Path
 import shutil
-from src.orchestrator import process_pdf_and_extract_esg
+from src.orchestrator import process_pdf_and_extract
 from src.llm_response import get_response
 
 app = FastAPI()
@@ -20,7 +20,7 @@ async def upload_pdf(file: UploadFile, user_id: str = Form(...)):
 
     async def streamer():
         task = asyncio.create_task(
-            process_pdf_and_extract_esg(save_path, user_id, get_response, progress_queue)
+            process_pdf_and_extract(save_path, user_id, get_response, progress_queue)
         )
         while True:
             try:

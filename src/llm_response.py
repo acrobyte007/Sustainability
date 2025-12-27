@@ -52,11 +52,14 @@ Document Chunks:
 {chunk_block}
 """
 
-async def format_chunks_async(chunks: Dict[str, str]) -> str:
+async def format_chunks_async(chunks) -> str:
     formatted = []
-    for page, text in chunks.items():
+    for chunk in chunks:
+        page = chunk.get("page", "Unknown")
+        text = chunk.get("text", "")
         formatted.append(f"\n[PAGE {page}]\n{text}\n")
     return "\n".join(formatted)
+
 
 
 async def build_prompt_async(indicator_name: str,question: str,units: List[str],chunks: Dict[str, str],):

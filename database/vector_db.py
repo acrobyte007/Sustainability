@@ -6,6 +6,7 @@ from typing import List, Dict, Any
 import asyncio
 import logging
 from pinecone import Pinecone, PineconeException
+import math
 from database.utils import get_top_chunks_with_bm25
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,9 @@ async def get_index():
     return _index
 
 
+
+BATCH_SIZE = 100
+
 async def upsert_document_vectors(
     namespace: str,
     document_id: str,
@@ -68,20 +72,34 @@ async def upsert_document_vectors(
     ]
 
     index = await get_index()
+    results = []
+
+    # number of batches
+    total_batches = math.ceil(len(vectors_to_upsert) / BATCH_SIZE)
 
     try:
-        result = await asyncio.to_thread(
-            index.upsert,
-            namespace=namespace,
-            vectors=vectors_to_upsert
-        )
-        logger.debug(
-            "Upserted %d vectors for document_id=%s in namespace=%s",
-            len(vectors_to_upsert),
-            document_id,
-            namespace
-        )
-        return result
+        for batch_num in range(total_batches):
+            start = batch_num * BATCH_SIZE
+            end = start + BATCH_SIZE
+            batch = vectors_to_upsert[start:end]
+
+            result = await asyncio.to_thread(
+                index.upsert,
+                namespace=namespace,
+                vectors=batch
+            )
+            results.append(result)
+
+            logger.debug(
+                "Upserted batch %d/%d (%d vectors) for document_id=%s in namespace=%s",
+                batch_num + 1,
+                total_batches,
+                len(batch),
+                document_id,
+                namespace
+            )
+
+        return results
 
     except Exception as e:
         logger.error(
@@ -154,7 +172,6 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
     distances = [c["score"] for c in candidates.values()]
 
     top_chunks = await get_top_chunks_with_bm25(texts, ids, distances, query)
-    print(f"top chunks: {top_chunks}")
     logger.debug("Top chunks: %s", top_chunks)
     if not top_chunks:
         logger.debug("BM25 returned no top chunks")
@@ -187,7 +204,5 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
             "id": match["id"],
             "score": match["score"],
         })
-
-    print("Structured chunks:", structured)
 
     return structured

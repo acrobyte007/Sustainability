@@ -5,8 +5,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-chunk_size = 500
-overlap = 75
+chunk_size = 250
+overlap = 50
 async def chunk_words(words, ):
     step = chunk_size - overlap
     chunk_index = 1

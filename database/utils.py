@@ -68,7 +68,7 @@ async def get_top_chunks_with_bm25(chunk_texts,chunk_ids,distances,query) -> Tup
         _, unique_indices = np.unique(results[:, 1], return_index=True)
         results = results[sorted(unique_indices)]
         results = results[np.argsort(results[:, 2])[::-1]]
-        results = results[:9]
+        results = results[:2]
 
         ranked_chunks = [r[0] for r in results]
         ranked_ids = [r[1] for r in results]

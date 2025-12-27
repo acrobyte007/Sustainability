@@ -6,24 +6,13 @@ from database.vector_db import upsert_document_vectors, query_vector_index
 from src.prompts.questions import FUNDAMENTAL_RAG_SPEC
 import asyncio
 
-def group_chunks_by_page(chunk_texts, chunk_ids):
-    page_map = {}
-    for text, cid in zip(chunk_texts, chunk_ids):
-        try:
-            page = cid.split("#p")[1].split("c")[0]
-        except Exception:
-            page = "unknown"
-        page_map.setdefault(page, "")
-        page_map[page] += "\n" + text
-    return page_map
-
-async def run_indicator_rag(indicator_key, spec, chunks_by_page, get_response, progress_queue=None):
+async def run_indicator_rag(indicator_key, spec, chunks, get_response, progress_queue=None):
     async def ask(question):
         return await get_response(
             indicator_name=spec["indicator_name"],
             question=question,
             units=spec["units"],
-            chunks=chunks_by_page,
+            chunks=chunks,  # chunks already contain page, chunk_index, text
         )
 
     if progress_queue:
@@ -76,20 +65,24 @@ async def process_pdf(file_path, user_id, progress_queue=None):
         await progress_queue.put("PDF processing complete.")
     return file_path.name, records
 
-async def extract_esg_indicators(user_id, doc_ids, get_response, progress_queue=None):
+async def extract_indicators(user_id, doc_ids, get_response, progress_queue=None):
     results = {}
     for indicator_key, spec in FUNDAMENTAL_RAG_SPEC.items():
         if progress_queue:
             await progress_queue.put(f"Preparing to extract {indicator_key}...")
+
         query_text = spec["question"]
         vector = (await embed_sentences([query_text]))[0]
-        chunk_texts, chunk_ids, _ = await query_vector_index(
+
+        # Query chunks from vector DB
+        chunks = await query_vector_index(
             user_id=user_id,
             vector=vector,
             doc_ids=doc_ids,
             query=query_text,
         )
-        if not chunk_texts:
+
+        if not chunks:
             results[indicator_key] = {
                 "indicator_name": spec["indicator_name"],
                 "value": None,
@@ -101,14 +94,16 @@ async def extract_esg_indicators(user_id, doc_ids, get_response, progress_queue=
             if progress_queue:
                 await progress_queue.put(f"No chunks found for {indicator_key}.")
             continue
-        chunks_by_page = group_chunks_by_page(chunk_texts, chunk_ids)
+
+        # Pass chunks directly
         response = await run_indicator_rag(
             indicator_key=indicator_key,
             spec=spec,
-            chunks_by_page=chunks_by_page,
+            chunks=chunks,
             get_response=get_response,
             progress_queue=progress_queue,
         )
+
         results[indicator_key] = {
             "indicator_name": spec["indicator_name"],
             "value": response.value,
@@ -117,16 +112,17 @@ async def extract_esg_indicators(user_id, doc_ids, get_response, progress_queue=
             "confidence": response.confidence or 0.0,
             "status": "ok" if response.value else "not_found",
         }
+
     return results
 
-async def process_pdf_and_extract_esg(file_path, user_id, get_response, progress_queue=None):
+async def process_pdf_and_extract(file_path, user_id, get_response, progress_queue=None):
     doc_id, records = await process_pdf(file_path, user_id, progress_queue=progress_queue)
-    esg_results = await extract_esg_indicators(
+    results = await extract_indicators(
         user_id=user_id,
         doc_ids=[doc_id],
         get_response=get_response,
         progress_queue=progress_queue,
     )
     if progress_queue:
-        await progress_queue.put("All ESG indicators extracted.")
-    return esg_results
+        await progress_queue.put("All indicators extracted.")
+    return results
