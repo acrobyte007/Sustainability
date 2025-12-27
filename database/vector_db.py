@@ -6,7 +6,6 @@ CURRENT = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT.parents[1]
 sys.path.append(str(PROJECT_ROOT))
 load_dotenv(PROJECT_ROOT / ".env")
-
 from typing import List, Dict, Any, Tuple
 from pinecone import Pinecone, PineconeException
 import asyncio

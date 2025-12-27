@@ -5,3 +5,5 @@ spacy
 rank-bm25
 python-dotenv
 psycopg2
+pymupdf
+langchain_groq

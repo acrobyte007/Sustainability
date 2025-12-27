@@ -46,7 +46,6 @@ async def extract_text_from_pdf(
                 if not chunk.strip():
                     continue
 
-                # keyed by (page_number, chunk_number)
                 results[(page_num, chunk_idx)] = chunk
 
                 logger.debug(
