@@ -1,4 +1,4 @@
-from langchain_groq import ChatGroq
+
 from langchain_mistralai import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
 
-# ---------- MODELS ----------
+
 
 mistral_primary = ChatMistralAI(
     model="ministral-8b-latest",
@@ -18,15 +18,8 @@ mistral_primary = ChatMistralAI(
     max_retries=1,
 )
 
-groq_fallback = ChatGroq(
-    model="llama-3.3-70b-versatile",
-    temperature=0,
-    max_tokens=None,
-    timeout=None,
-)
 
 
-# ---------- STRUCTURED RESPONSE ----------
 
 class Quantity(BaseModel):
     value: Optional[float]
@@ -42,29 +35,24 @@ class Quantity(BaseModel):
 
 
 mistral_model = mistral_primary.with_structured_output(Quantity)
-groq_model = groq_fallback.with_structured_output(Quantity)
 
 
-# ---------- PROMPTS ----------
+
 
 SYSTEM_PROMPT = """
 Return ONLY a JSON structured Quantity tool output.
-
 Use only the provided chunks.
 Do NOT infer or estimate values.
-
 Rules:
 - Extract only explicitly reported values
 - Prefer latest reporting year
 - Prefer consolidated / group values
 - Preserve the unit exactly as written
 - Return exactly one value
-
 If multiple candidates exist:
 - choose the clearest and best-labeled one
 - explain selection briefly in `notes`
-- fill `source_section` with the closest heading or table title
-
+- fill source_section` with the closest heading or table title
 If not found:
 - return null fields
 - confidence = 0
@@ -88,7 +76,7 @@ prompt_template = ChatPromptTemplate.from_messages([
 ])
 
 
-# ---------- HELPERS ----------
+
 
 async def build_prompt(indicator_name: str, question: str, units: List[str], chunks):
     chunk_block = "\n".join(
@@ -108,13 +96,12 @@ async def run_chain(model, user_prompt: str):
     return await chain.ainvoke({"user_prompt": user_prompt})
 
 
-# ---------- MAIN FUNCTION WITH FALLBACK ----------
+
 
 async def get_response(indicator_name: str, question: str, units: List[str], chunks):
     user_prompt = await build_prompt(indicator_name, question, units, chunks)
 
    
-        # Try Mistral first
     response = await run_chain(mistral_model, user_prompt)
     print(indicator_name, "--", response)
     return response

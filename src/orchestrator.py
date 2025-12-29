@@ -3,126 +3,39 @@ import pandas as pd
 import io
 from src.text_extraction import extract_text_from_pdf
 from src.embeddings import embed_sentences
-from database.vector_db import (
-    upsert_document_vectors,
-    query_vector_index
-)
+from database.vector_db import upsert_document_vectors, query_vector_index
 from src.prompts.questions import FUNDAMENTAL_RAG_SPEC
 
-
 async def upload_file(file_path: Path, user_id: str):
-    """
-    Extract text from PDF, embed chunks, and upsert to vector DB.
-    """
     chunks_dict = await extract_text_from_pdf(file_path)
-
-    records = [
-        {"page": page, "chunk_index": chunk_idx, "text": text}
-        for (page, chunk_idx), text in sorted(chunks_dict.items())
-    ]
-
+    records = [{"page": page, "chunk_index": chunk_idx, "text": text} for (page, chunk_idx), text in sorted(chunks_dict.items())]
     vectors = await embed_sentences([r["text"] for r in records])
-
-    await upsert_document_vectors(
-        namespace=user_id,
-        document_id=file_path.name,
-        vectors=vectors,
-        chunks=records,
-    )
-
+    await upsert_document_vectors(namespace=user_id, document_id=file_path.name, vectors=vectors, chunks=records)
     return file_path.name, records
 
-
 async def extract_indicator(user_id: str, doc_ids: list[str], get_response):
-    """
-    Extract indicators based on FUNDAMENTAL_RAG_SPEC.
-    Returns a dict with all results including updated fields.
-    """
     results = {}
 
     async def ask_indicator(spec, chunks):
         async def ask(question):
-            return await get_response(
-                indicator_name=spec["indicator_name"],
-                question=question,
-                units=spec["units"],
-                chunks=chunks,
-            )
-
+            return await get_response(indicator_name=spec["indicator_name"], question=question, units=spec["units"], chunks=chunks)
         response = await ask(spec["question"])
-
         if response.value is not None and (response.confidence or 0) >= 0.6:
             return response
-
         for alt_q in spec.get("alt_questions", []):
             alt_resp = await ask(alt_q)
             if alt_resp.value is not None and (alt_resp.confidence or 0) >= 0.6:
                 return alt_resp
-
         return response
 
     for indicator_key, spec in FUNDAMENTAL_RAG_SPEC.items():
         query_text = spec["question"]
-
         vector = (await embed_sentences([query_text]))[0]
-
-        chunks = await query_vector_index(
-            user_id=user_id,
-            vector=vector,
-            doc_ids=doc_ids,
-            query=query_text,
-        )
-
+        chunks = await query_vector_index(user_id=user_id, vector=vector, doc_ids=doc_ids, query=query_text)
         if not chunks:
-            results[indicator_key] = {
-                "indicator_name": spec["indicator_name"],
-                "value": None,
-                "unit": None,
-                "page": None,
-                "confidence": 0.0,
-                "status": "no_chunks_found",
-                "source_section": None,
-                "notes": None,
-            }
+            results[indicator_key] = {"indicator_name": spec["indicator_name"], "value": None, "unit": None, "page": None, "confidence": 0.0, "status": "no_chunks_found", "source_section": None, "notes": None}
             continue
-
         response = await ask_indicator(spec, chunks)
-
-        results[indicator_key] = {
-            "indicator_name": spec["indicator_name"],
-            "value": response.value,
-            "unit": response.unit if response.unit in spec["units"] else None,
-            "page": getattr(response, "page_reference", None),
-            "confidence": response.confidence or 0.0,
-            "status": "ok" if response.value else "not_found",
-            "source_section": getattr(response, "source_section", None),
-            "notes": getattr(response, "notes", None),
-        }
-
+        results[indicator_key] = {"indicator_name": spec["indicator_name"], "value": response.value, "unit": response.unit if response.unit in spec["units"] else None, "page": getattr(response, "page_reference", None), "confidence": response.confidence or 0.0, "status": "ok" if response.value else "not_found", "source_section": getattr(response, "source_section", None), "notes": getattr(response, "notes", None)}
     return results
 
-
-async def results_to_csv_bytes(results: dict) -> bytes:
-    """
-    Convert results dict to a Pandas DataFrame and return CSV as bytes.
-    """
-    rows = []
-    for indicator_key, data in results.items():
-        row = {
-            "indicator_key": indicator_key,
-            "indicator_name": data.get("indicator_name"),
-            "value": data.get("value"),
-            "unit": data.get("unit"),
-            "page": data.get("page"),
-            "confidence": data.get("confidence"),
-            "status": data.get("status"),
-            "source_section": data.get("source_section"),
-            "notes": data.get("notes"),
-        }
-        rows.append(row)
-
-    df = pd.DataFrame(rows)
-    buffer = io.BytesIO()
-    df.to_csv(buffer, index=False)
-    buffer.seek(0)
-    return buffer.getvalue()

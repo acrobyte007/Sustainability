@@ -4,7 +4,8 @@ from pathlib import Path
 import shutil
 import io
 
-from src.orchestrator import upload_file, extract_indicator,results_to_csv_bytes
+from src.orchestrator import upload_file, extract_indicator
+from src.calulation import calculate_esrs_indicators,esrs_to_csv
 from src.llm_response import get_response
 
 app = FastAPI()
@@ -38,7 +39,10 @@ async def extract_indicators(
         doc_ids=[doc_id],
         get_response=get_response
     )
-    csv_bytes = await results_to_csv_bytes(results)
+    print(results)
+    raw_data= await calculate_esrs_indicators(results)
+
+    csv_bytes =  esrs_to_csv(raw_data)
     csv_stream = io.BytesIO(csv_bytes)
     return StreamingResponse(
         csv_stream,
