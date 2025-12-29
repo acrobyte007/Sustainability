@@ -73,7 +73,6 @@ async def get_top_chunks_with_bm25(chunk_texts,chunk_ids,distances,query) -> Tup
         ranked_chunks = [r[0] for r in results]
         ranked_ids = [r[1] for r in results]
         ranked_scores = [float(r[2]) for r in results]
-        print(f"ranked chunks: {ranked_chunks}")
         return ranked_chunks, ranked_ids, ranked_scores
 
     return await asyncio.to_thread(_rank, tokenized_chunks, query_tokens)
