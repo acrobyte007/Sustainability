@@ -1,30 +1,23 @@
-import asyncio
 from pathlib import Path
 from src.text_extraction import extract_text_from_pdf
 from src.embeddings import embed_sentences
-from database.vector_db import upsert_document_vectors, query_vector_index
+from database.vector_db import (
+    upsert_document_vectors,
+    query_vector_index
+)
 from src.prompts.questions import FUNDAMENTAL_RAG_SPEC
 
 
-async def upload_file(file_path, user_id, progress_queue=None):
-    if progress_queue:
-        await progress_queue.put("Extracting chunks from PDF...")
-
+async def upload_file(file_path: Path, user_id: str):
     chunks_dict = await extract_text_from_pdf(file_path)
 
     records = [
         {"page": page, "chunk_index": chunk_idx, "text": text}
         for (page, chunk_idx), text in sorted(chunks_dict.items())
     ]
-
-    if progress_queue:
-        await progress_queue.put(f"Embedding {len(records)} chunks...")
-
+    print(f"embedding {len(records)} chunks")
     vectors = await embed_sentences([r["text"] for r in records])
-
-    if progress_queue:
-        await progress_queue.put("Upserting vectors to database...")
-
+    print(f"upserting {len(vectors)} vectors")
     await upsert_document_vectors(
         namespace=user_id,
         document_id=file_path.name,
@@ -32,13 +25,10 @@ async def upload_file(file_path, user_id, progress_queue=None):
         chunks=records,
     )
 
-    if progress_queue:
-        await progress_queue.put("Upload + vectorization complete.")
-
     return file_path.name, records
 
 
-async def extract_indicator(user_id, doc_ids, get_response, progress_queue=None):
+async def extract_indicator(user_id: str, doc_ids: list[str], get_response):
     results = {}
 
     async def ask_indicator(indicator_key, spec, chunks):
@@ -63,10 +53,8 @@ async def extract_indicator(user_id, doc_ids, get_response, progress_queue=None)
         return response
 
     for indicator_key, spec in FUNDAMENTAL_RAG_SPEC.items():
-        if progress_queue:
-            await progress_queue.put(f"Extracting {indicator_key}...")
-
         query_text = spec["question"]
+
         vector = (await embed_sentences([query_text]))[0]
 
         chunks = await query_vector_index(
@@ -97,8 +85,5 @@ async def extract_indicator(user_id, doc_ids, get_response, progress_queue=None)
             "confidence": response.confidence or 0.0,
             "status": "ok" if response.value else "not_found",
         }
-
-    if progress_queue:
-        await progress_queue.put("Indicator extraction complete.")
 
     return results
