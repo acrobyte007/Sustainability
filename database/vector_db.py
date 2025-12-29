@@ -2,19 +2,19 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+CURRENT = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT.parents[1]
+sys.path.append(str(PROJECT_ROOT))
+load_dotenv(PROJECT_ROOT / ".env")
 from typing import List, Dict, Any
 import asyncio
 import logging
 from pinecone import Pinecone, PineconeException
 import math
+import random
 from database.utils import get_top_chunks_with_bm25
-
 logger = logging.getLogger(__name__)
 
-CURRENT = Path(__file__).resolve()
-PROJECT_ROOT = CURRENT.parents[1]
-sys.path.append(str(PROJECT_ROOT))
-load_dotenv(PROJECT_ROOT / ".env")
 
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
 index_name = "index"
@@ -29,23 +29,21 @@ _index_lock = asyncio.Lock()
 async def get_pinecone_client():
     global _pc
     if _pc is None:
-        logger.info("Creating Pinecone client (lazy initialization)")
         _pc = Pinecone(api_key=pinecone_api_key)
-        logger.info("Pinecone client initialized")
     return _pc
 
 async def get_index():
     global _index
     async with _index_lock:
         if _index is None:
-            logger.info(f"Initializing Pinecone index '{index_name}'")
             pc = await get_pinecone_client()
             index_info = await asyncio.to_thread(pc.describe_index, index_name)
             _index = pc.Index(host=index_info["host"], name=index_name)
-            logger.info(f"Connected to index '{index_name}'")
     return _index
 
+
 BATCH_SIZE = 100
+
 
 async def upsert_document_vectors(namespace: str, document_id: str, vectors: List[List[float]], chunks: List[Dict[str, Any]]):
     vectors_to_upsert = [
@@ -71,33 +69,17 @@ async def upsert_document_vectors(namespace: str, document_id: str, vectors: Lis
             start = batch_num * BATCH_SIZE
             end = start + BATCH_SIZE
             batch = vectors_to_upsert[start:end]
-
             result = await asyncio.to_thread(
                 index.upsert,
                 namespace=namespace,
                 vectors=batch
             )
             results.append(result)
-
-            logger.debug(
-                "Upserted batch %d/%d (%d vectors) for document_id=%s in namespace=%s",
-                batch_num + 1,
-                total_batches,
-                len(batch),
-                document_id,
-                namespace
-            )
-
         return results
 
     except Exception as e:
-        logger.error(
-            "Upsert failed for document_id=%s, namespace=%s: %s",
-            document_id,
-            namespace,
-            e
-        )
         raise
+
 
 async def _query_single_doc(index, user_id: str, vector, doc_id: str):
     try:
@@ -111,50 +93,52 @@ async def _query_single_doc(index, user_id: str, vector, doc_id: str):
             include_values=False
         )
     except PineconeException as e:
-        logger.error(f"PineconeException for user_id={user_id}, doc_id={doc_id}: {e}")
         return None
     except Exception as e:
-        logger.error(f"Unexpected exception for user_id={user_id}, doc_id={doc_id}: {e}")
         return None
+
 
 async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: str):
     index = await get_index()
-
     results = await asyncio.gather(
         *[_query_single_doc(index, user_id, vector, doc_id) for doc_id in doc_ids],
         return_exceptions=True
     )
 
     all_matches = []
-    for result in results:
-        if not result:
+
+    for r in results:
+        if isinstance(r, Exception):
             continue
-        if hasattr(result, "matches"):
-            all_matches.extend(result.matches)
-        elif isinstance(result, dict) and "matches" in result:
-            all_matches.extend(result["matches"])
+
+        if not r:
+            continue
+
+        if hasattr(r, "matches"):
+            all_matches.extend(r.matches)
+        elif isinstance(r, dict) and "matches" in r:
+            all_matches.extend(r["matches"])
 
     candidates = {}
 
     for match in all_matches or []:
-        metadata = getattr(match, "metadata", {}) or {}
-        match_id = getattr(match, "id", "").strip()
-        candidates[match_id] = {
-            "id": match_id,
-            "score": getattr(match, "score", 0.0),
-            "page": metadata.get("page"),
-            "chunk_index": metadata.get("chunk_index"),
-            "document_id": metadata.get("document_id"),
-            "chunk_text": metadata.get("chunk_text", ""),
-        }
+            metadata = getattr(match, "metadata", {}) or {}
+            match_id = getattr(match, "id", "").strip()
+
+            candidates[match_id] = {
+                "id": match_id,
+                "score": getattr(match, "score", 0.0),
+                "page": metadata.get("page"),
+                "chunk_index": metadata.get("chunk_index"),
+                "document_id": metadata.get("document_id"),
+                "chunk_text": metadata.get("chunk_text", ""),
+            }
 
     texts = [c["chunk_text"] for c in candidates.values()]
     ids = [c["id"] for c in candidates.values()]
     distances = [c["score"] for c in candidates.values()]
 
     top_chunks = await get_top_chunks_with_bm25(texts, ids, distances, query)
-
-    logger.debug("Top chunks: %s", top_chunks)
 
     if not top_chunks:
         return []
@@ -186,5 +170,6 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
             "vector_score": match["score"],
             "bm25_score": score,
         })
-
     return structured
+
+
