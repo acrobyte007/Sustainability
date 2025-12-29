@@ -8,6 +8,9 @@ import asyncio
 
 async def run_indicator_rag(indicator_key, spec, chunks, get_response, progress_queue=None):
     async def ask(question):
+        if progress_queue:
+            await progress_queue.put("Waiting 1 minute before LLM call...")
+        await asyncio.sleep(60)
         return await get_response(
             indicator_name=spec["indicator_name"],
             question=question,
@@ -75,6 +78,7 @@ async def extract_indicators(user_id, doc_ids, get_response, progress_queue=None
         vector = (await embed_sentences([query_text]))[0]
 
         # Query chunks from vector DB
+        print(f"{query_text}")
         chunks = await query_vector_index(
             user_id=user_id,
             vector=vector,

@@ -68,12 +68,12 @@ async def get_top_chunks_with_bm25(chunk_texts,chunk_ids,distances,query) -> Tup
         _, unique_indices = np.unique(results[:, 1], return_index=True)
         results = results[sorted(unique_indices)]
         results = results[np.argsort(results[:, 2])[::-1]]
-        results = results[:2]
+        results = results[:5]
 
         ranked_chunks = [r[0] for r in results]
         ranked_ids = [r[1] for r in results]
         ranked_scores = [float(r[2]) for r in results]
-
+        print(f"ranked chunks: {ranked_chunks}")
         return ranked_chunks, ranked_ids, ranked_scores
 
     return await asyncio.to_thread(_rank, tokenized_chunks, query_tokens)

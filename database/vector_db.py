@@ -26,7 +26,6 @@ _pc = None
 _index = None
 _index_lock = asyncio.Lock()
 
-
 async def get_pinecone_client():
     global _pc
     if _pc is None:
@@ -34,7 +33,6 @@ async def get_pinecone_client():
         _pc = Pinecone(api_key=pinecone_api_key)
         logger.info("Pinecone client initialized")
     return _pc
-
 
 async def get_index():
     global _index
@@ -47,16 +45,9 @@ async def get_index():
             logger.info(f"Connected to index '{index_name}'")
     return _index
 
-
-
 BATCH_SIZE = 100
 
-async def upsert_document_vectors(
-    namespace: str,
-    document_id: str,
-    vectors: List[List[float]],
-    chunks: List[Dict[str, Any]]
-):
+async def upsert_document_vectors(namespace: str, document_id: str, vectors: List[List[float]], chunks: List[Dict[str, Any]]):
     vectors_to_upsert = [
         {
             "id": f"{document_id}#p{c['page']}c{c['chunk_index']}",
@@ -73,8 +64,6 @@ async def upsert_document_vectors(
 
     index = await get_index()
     results = []
-
-    # number of batches
     total_batches = math.ceil(len(vectors_to_upsert) / BATCH_SIZE)
 
     try:
@@ -110,14 +99,13 @@ async def upsert_document_vectors(
         )
         raise
 
-
 async def _query_single_doc(index, user_id: str, vector, doc_id: str):
     try:
         return await asyncio.to_thread(
             index.query,
             namespace=user_id,
             vector=vector,
-            top_k=50,
+            top_k=5,
             filter={"document_id": {"$eq": doc_id}},
             include_metadata=True,
             include_values=False
@@ -129,12 +117,12 @@ async def _query_single_doc(index, user_id: str, vector, doc_id: str):
         logger.error(f"Unexpected exception for user_id={user_id}, doc_id={doc_id}: {e}")
         return None
 
-
 async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: str):
     index = await get_index()
 
     results = await asyncio.gather(
-        *[_query_single_doc(index, user_id, vector, doc_id) for doc_id in doc_ids]
+        *[_query_single_doc(index, user_id, vector, doc_id) for doc_id in doc_ids],
+        return_exceptions=True
     )
 
     all_matches = []
@@ -146,12 +134,9 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
         elif isinstance(result, dict) and "matches" in result:
             all_matches.extend(result["matches"])
 
-    if not all_matches:
-        logger.debug("No matches returned from Pinecone")
-        return []
-
     candidates = {}
-    for match in all_matches:
+
+    for match in all_matches or []:
         metadata = getattr(match, "metadata", {}) or {}
         match_id = getattr(match, "id", "").strip()
         candidates[match_id] = {
@@ -163,26 +148,22 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
             "chunk_text": metadata.get("chunk_text", ""),
         }
 
-    if not candidates:
-        logger.debug("No valid candidates found")
-        return []
-
     texts = [c["chunk_text"] for c in candidates.values()]
     ids = [c["id"] for c in candidates.values()]
     distances = [c["score"] for c in candidates.values()]
 
     top_chunks = await get_top_chunks_with_bm25(texts, ids, distances, query)
+
     logger.debug("Top chunks: %s", top_chunks)
+
     if not top_chunks:
-        logger.debug("BM25 returned no top chunks")
         return []
 
     structured = []
 
-    # Unpack top_chunks correctly
-    texts, ids, scores = top_chunks  # unpack the tuple of lists
+    texts, ids, scores = top_chunks
+
     for chunk_text, chunk_id_item, score in zip(texts, ids, scores):
-        # unwrap chunk_id if it's a list
         if isinstance(chunk_id_item, list):
             if not chunk_id_item:
                 continue
@@ -191,9 +172,9 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
             chunk_id = chunk_id_item
 
         chunk_id_clean = chunk_id.strip() if isinstance(chunk_id, str) else str(chunk_id)
+
         match = candidates.get(chunk_id_clean)
         if not match:
-            print(f"Chunk ID {chunk_id_clean!r} not found in candidates")
             continue
 
         structured.append({
@@ -202,7 +183,8 @@ async def query_vector_index(user_id: str, vector, doc_ids: List[str], query: st
             "text": match["chunk_text"],
             "document_id": match["document_id"],
             "id": match["id"],
-            "score": match["score"],
+            "vector_score": match["score"],
+            "bm25_score": score,
         })
 
     return structured

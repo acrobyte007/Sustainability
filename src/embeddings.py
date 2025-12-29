@@ -1,7 +1,8 @@
 import asyncio
 from sentence_transformers import SentenceTransformer
 
-model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+# Use the all-MiniLM-L6-v2 model
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 async def embed_sentences(sentences):
     embeddings = await asyncio.to_thread(
@@ -10,5 +11,3 @@ async def embed_sentences(sentences):
         convert_to_numpy=True
     )
     return embeddings.tolist()
-
-

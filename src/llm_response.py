@@ -14,8 +14,7 @@ llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0,
     max_tokens=None,
-    timeout=None,
-    max_retries=1,
+    timeout=None
 )
 
 class Quantity(BaseModel):
@@ -81,6 +80,7 @@ async def get_response(indicator_name: str,question: str, units: List[str], chun
     )
 
     response = await model.ainvoke(prompt)
+    print(f"{indicator_name} -- {response}")
     return response
 
 
