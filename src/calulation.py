@@ -54,9 +54,12 @@ async def calculate_esrs_indicators(data):
     if renewable_pct is not None:
         renewable_pct *= 100
     female_pct = await safe_divide(female_emp_item, total_emp_item)
-    if female_pct is not None:
-        female_pct *= 100
-    gender_pay_gap = await safe_divide(male_salary_item["value"] - female_salary_item["value"], male_salary_item)
+    male_salary_item = data.get("Avg_Salary_Male")
+    female_salary_item = data.get("Avg_Salary_Female")
+    male_value = await unwrap_value(male_salary_item)
+    female_value = await unwrap_value(female_salary_item)
+    gender_pay_gap = await safe_divide(male_value - female_value, male_value) if male_value and female_value else None
+
     if gender_pay_gap is not None:
         gender_pay_gap *= 100
     training_per_emp = await safe_divide(training_item, total_emp_item)
