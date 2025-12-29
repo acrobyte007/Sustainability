@@ -1,6 +1,5 @@
 FUNDAMENTAL_RAG_SPEC = {
 
-    # ------------------ ENVIRONMENTAL (ESRS E1) ------------------
     "Scope1_Emissions": {
         "indicator_name": "Scope 1 GHG Emissions",
         "units": ["tCO2e", "ktCO2e", "MtCO2e"],
@@ -90,7 +89,7 @@ FUNDAMENTAL_RAG_SPEC = {
     },
 
 
-    # ------------------ SOCIAL (ESRS S1) ------------------
+
     "Total_Employees": {
         "indicator_name": "Total Employees (FTE)",
         "units": ["FTE", "headcount", "employees"],
@@ -191,7 +190,7 @@ FUNDAMENTAL_RAG_SPEC = {
     },
 
 
-    # ------------------ GOVERNANCE (ESRS G1 / ESRS 2) ------------------
+ 
     "Female_Board_Members": {
         "indicator_name": "Female Board Members",
         "units": ["count"],

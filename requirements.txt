@@ -13,3 +13,5 @@ pydantic
 python-multipart
 langchain_mistralai
 pandas
+sqlalchemy
+asyncpg

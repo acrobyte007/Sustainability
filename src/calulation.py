@@ -1,6 +1,6 @@
 import pandas as pd
 import io
-
+from database.database import insert_esg_metrics_async
 async def unwrap_value(x):
     if isinstance(x, dict):
         return x.get("value")
@@ -19,7 +19,6 @@ async def calculate_esrs_indicators(data):
         if isinstance(item, dict):
             return item
         return {"value": None, "unit": None, "page": None, "confidence": None, "source_section": None, "notes": None}
-
     scope1_item = get_item("Scope1_Emissions")
     scope2_item = get_item("Scope2_Emissions")
     scope3_item = get_item("Scope3_Emissions")
@@ -80,7 +79,6 @@ async def calculate_esrs_indicators(data):
         suppliers_esg_pct *= 100
 
     esrs = {
-        # Environmental (E1)
         "Scope1_Emissions": {**scope1_item, "indicator_name": "Total Scope 1 GHG Emissions", "value": scope1_item["value"]},
         "Scope2_Emissions": {**scope2_item, "indicator_name": "Total Scope 2 GHG Emissions", "value": scope2_item["value"]},
         "Scope3_Emissions": {**scope3_item, "indicator_name": "Total Scope 3 GHG Emissions", "value": scope3_item["value"]},
@@ -89,8 +87,6 @@ async def calculate_esrs_indicators(data):
         "Renewable_Energy_Percentage": {**renewable_item, "indicator_name": "Renewable Energy Percentage", "value": renewable_pct, "unit": "%"},
         "NetZero_Target_Year": {**net_zero_item, "indicator_name": "Net Zero Target Year", "value": net_zero_item["value"]},
         "Green_Financing_Volume": {**green_fin_item, "indicator_name": "Green Financing Volume", "value": green_fin_item["value"]},
-
-        # Social (S1)
         "Total_Employees": {**total_emp_item, "indicator_name": "Total Employees", "value": total_emp_item["value"]},
         "Female_Employees_Percentage": {**female_emp_item, "indicator_name": "Female Employees %", "value": female_pct, "unit": "%"},
         "Gender_Pay_Gap": {**female_salary_item, "indicator_name": "Gender Pay Gap %", "value": gender_pay_gap, "unit": "%"},
@@ -98,8 +94,6 @@ async def calculate_esrs_indicators(data):
         "Employee_Turnover_Rate": {**emp_left_item, "indicator_name": "Employee Turnover Rate %", "value": employee_turnover, "unit": "%"},
         "Work_Accidents": {**work_acc_item, "indicator_name": "Work-Related Accidents", "value": work_acc_item["value"]},
         "Employees_CBA_Covered": {**cba_item, "indicator_name": "Collective Bargaining Coverage %", "value": cba_pct, "unit": "%"},
-        
-        # Governance (G1/G2)
         "Board_Female_Representation": {**female_board_item, "indicator_name": "Board Female Representation %", "value": board_female_pct, "unit": "%"},
         "Board_Meetings": {**board_meet_item, "indicator_name": "Board Meetings", "value": board_meet_item["value"]},
         "Corruption_Incidents": {**corruption_item, "indicator_name": "Corruption Incidents", "value": corruption_item["value"]},
@@ -111,9 +105,10 @@ async def calculate_esrs_indicators(data):
 
 
 
-def esrs_to_csv(esrs_dict):
+async def esrs_to_csv(esrs_dict, organization_id):
 
     ESRS_ORDER = [
+        "Report_Year",
         "Scope1_Emissions",
         "Scope2_Emissions",
         "Scope3_Emissions",
@@ -122,7 +117,6 @@ def esrs_to_csv(esrs_dict):
         "Renewable_Energy_Percentage",
         "NetZero_Target_Year",
         "Green_Financing_Volume",
-
         "Total_Employees",
         "Female_Employees_Percentage",
         "Gender_Pay_Gap",
@@ -130,7 +124,6 @@ def esrs_to_csv(esrs_dict):
         "Employee_Turnover_Rate",
         "Work_Accidents",
         "Employees_CBA_Covered",
-
         "Board_Female_Representation",
         "Board_Meetings",
         "Corruption_Incidents",
@@ -139,6 +132,7 @@ def esrs_to_csv(esrs_dict):
     ]
 
     rows = []
+    esg_bulk = {"ESRS": {}}
 
     for key in ESRS_ORDER:
         item = esrs_dict.get(key, {})
@@ -149,15 +143,23 @@ def esrs_to_csv(esrs_dict):
             "value": item.get("value"),
             "unit": item.get("unit"),
             "confidence": item.get("confidence"),
-            "source_page": item.get("page"),  
+            "source_page": item.get("page"),
             "source_section": item.get("source_section"),
             "notes": item.get("notes"),
         })
 
-    df = pd.DataFrame(rows)
+        esg_bulk["ESRS"][item.get("indicator_name")] = {
+            "value": item.get("value"),
+            "unit": item.get("unit")
+        }
 
+    await insert_esg_metrics_async(
+        organization_id=organization_id,
+        esg_data=esg_bulk
+    )
+
+    df = pd.DataFrame(rows)
     buf = io.BytesIO()
     df.to_csv(buf, index=False)
     buf.seek(0)
-
     return buf.getvalue()
