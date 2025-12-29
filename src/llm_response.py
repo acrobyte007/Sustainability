@@ -1,15 +1,14 @@
 from langchain_groq import ChatGroq
+from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
-import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-CURRENT = Path(__file__).resolve()
-PROJECT_ROOT = CURRENT.parents[1]
-sys.path.append(str(PROJECT_ROOT))
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
-api_key = os.getenv("GROQ_API_KEY")
+
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0,
@@ -18,52 +17,43 @@ llm = ChatGroq(
 )
 
 class Quantity(BaseModel):
-    value: Optional[float] = Field(description="Numeric value of the requested quantity, if found")
-    unit: Optional[str] = Field( description="Unit exactly as written in the source document")
-    page_reference: Optional[str] = Field( description="Page number where the value was found")
-    confidence: Optional[float] = Field(description="Confidence score between 0 and 1")
-
+    value: Optional[float] = Field(description="The value of the indicator")
+    unit: Optional[str] = Field(description="The unit of the indicator")
+    page_reference: Optional[int] = Field(description="Reference to the page where the indicator was found")
+    confidence: Optional[float] = Field(description="Confidence of your answer in the range [0, 1]")
 
 model = llm.with_structured_output(Quantity)
 
-RAG_PROMPT = """
-You are an ESG data extraction assistant.
-Use ONLY the information in the provided document chunks.
-Do NOT infer, calculate, interpolate, or estimate values.
+SYSTEM_PROMPT = """
+You MUST return output only via the Quantity tool in valid JSON format.
+Use only the provided chunks. Do not infer or estimate values.
+Return one value, preserve the unit exactly, prefer consolidated values and the latest year.
+If not found, return null fields and confidence 0.
+Do not output text or XML tags. Do not use commas in numbers.
+"""
+USER_PROMPT = """
 Indicator:
 {indicator_name}
 Question:
 {question}
 Allowed units:
 {allowed_units}
-Extraction rules:
-- Extract only explicitly reported values
-- Prefer consolidated / group-level disclosures
-- Prefer the latest reporting year
-- Return only one value
-- Preserve the unit exactly as written
-- If multiple values exist, choose the most clearly labeled one
-- If the value is not found in ANY chunk, return null fields
-- Do NOT hallucinate missing values
-Output fields:
-value, unit, page_reference, confidence
 Document Chunks:
 {chunk_block}
 """
 
-async def format_chunks_async(chunks) -> str:
-    formatted = []
-    for chunk in chunks:
-        page = chunk.get("page", "Unknown")
-        text = chunk.get("text", "")
-        formatted.append(f"\n[PAGE {page}]\n{text}\n")
-    return "\n".join(formatted)
+prompt_template = ChatPromptTemplate.from_messages([
+    ("system", SYSTEM_PROMPT),
+    ("user", "{user_prompt}")
+])
 
 
-
-async def build_prompt_async(indicator_name: str,question: str,units: List[str],chunks: Dict[str, str],):
-    chunk_block = await format_chunks_async(chunks)
-    return RAG_PROMPT.format(
+async def build_prompt(indicator_name: str, question: str, units: List[str], chunks):
+    chunk_block = "\n".join(
+        f"\n[PAGE {c.get('page','Unknown')}]\n{c.get('text','')}\n"
+        for c in chunks
+    )
+    return USER_PROMPT.format(
         indicator_name=indicator_name,
         question=question,
         allowed_units=", ".join(units),
@@ -71,16 +61,9 @@ async def build_prompt_async(indicator_name: str,question: str,units: List[str],
     )
 
 
-async def get_response(indicator_name: str,question: str, units: List[str], chunks: Dict[str, str],):
-    prompt = await build_prompt_async(
-        indicator_name=indicator_name,
-        question=question,
-        units=units,
-        chunks=chunks,
-    )
-
-    response = await model.ainvoke(prompt)
+async def get_response(indicator_name: str, question: str, units: List[str], chunks):
+    user_prompt = await build_prompt(indicator_name, question, units, chunks)
+    chain = prompt_template | model
+    response = await chain.ainvoke({"user_prompt": user_prompt})
     print(f"{indicator_name} -- {response}")
     return response
-
-

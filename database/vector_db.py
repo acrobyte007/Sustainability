@@ -11,7 +11,6 @@ import asyncio
 import logging
 from pinecone import Pinecone, PineconeException
 import math
-import random
 from database.utils import get_top_chunks_with_bm25
 logger = logging.getLogger(__name__)
 
