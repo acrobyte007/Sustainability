@@ -1,36 +1,76 @@
 from langchain_groq import ChatGroq
+from langchain_mistralai import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
-import os
+from typing import Optional, List
 from pathlib import Path
 from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
 
-llm = ChatGroq(
+
+# ---------- MODELS ----------
+
+mistral_primary = ChatMistralAI(
+    model="ministral-8b-latest",
+    temperature=0,
+    max_retries=1,
+)
+
+groq_fallback = ChatGroq(
     model="llama-3.3-70b-versatile",
     temperature=0,
     max_tokens=None,
-    timeout=None
+    timeout=None,
 )
 
-class Quantity(BaseModel):
-    value: Optional[float] = Field(description="The value of the indicator")
-    unit: Optional[str] = Field(description="The unit of the indicator")
-    page_reference: Optional[int] = Field(description="Reference to the page where the indicator was found")
-    confidence: Optional[float] = Field(description="Confidence of your answer in the range [0, 1]")
 
-model = llm.with_structured_output(Quantity)
+# ---------- STRUCTURED RESPONSE ----------
+
+class Quantity(BaseModel):
+    value: Optional[float]
+    unit: Optional[str]
+    page_reference: Optional[int]
+    confidence: Optional[float]
+    source_section: Optional[str] = Field(
+        description="Section, heading, or table name where the value was found"
+    )
+    notes: Optional[str] = Field(
+        description="Short explanation, extraction reasoning, or disambiguation notes"
+    )
+
+
+mistral_model = mistral_primary.with_structured_output(Quantity)
+groq_model = groq_fallback.with_structured_output(Quantity)
+
+
+# ---------- PROMPTS ----------
 
 SYSTEM_PROMPT = """
-You MUST return output only via the Quantity tool in valid JSON format.
-Use only the provided chunks. Do not infer or estimate values.
-Return one value, preserve the unit exactly, prefer consolidated values and the latest year.
-If not found, return null fields and confidence 0.
-Do not output text or XML tags. Do not use commas in numbers.
+Return ONLY a JSON structured Quantity tool output.
+
+Use only the provided chunks.
+Do NOT infer or estimate values.
+
+Rules:
+- Extract only explicitly reported values
+- Prefer latest reporting year
+- Prefer consolidated / group values
+- Preserve the unit exactly as written
+- Return exactly one value
+
+If multiple candidates exist:
+- choose the clearest and best-labeled one
+- explain selection briefly in `notes`
+- fill `source_section` with the closest heading or table title
+
+If not found:
+- return null fields
+- confidence = 0
+- notes = "value not found in provided chunks"
 """
+
 USER_PROMPT = """
 Indicator:
 {indicator_name}
@@ -48,9 +88,11 @@ prompt_template = ChatPromptTemplate.from_messages([
 ])
 
 
+# ---------- HELPERS ----------
+
 async def build_prompt(indicator_name: str, question: str, units: List[str], chunks):
     chunk_block = "\n".join(
-        f"\n[PAGE {c.get('page','Unknown')}]\n{c.get('text','')}\n"
+        f"\n[PAGE {c.get('page', 'Unknown')}]\n{c.get('text', '')}\n"
         for c in chunks
     )
     return USER_PROMPT.format(
@@ -61,9 +103,20 @@ async def build_prompt(indicator_name: str, question: str, units: List[str], chu
     )
 
 
+async def run_chain(model, user_prompt: str):
+    chain = prompt_template | model
+    return await chain.ainvoke({"user_prompt": user_prompt})
+
+
+# ---------- MAIN FUNCTION WITH FALLBACK ----------
+
 async def get_response(indicator_name: str, question: str, units: List[str], chunks):
     user_prompt = await build_prompt(indicator_name, question, units, chunks)
-    chain = prompt_template | model
-    response = await chain.ainvoke({"user_prompt": user_prompt})
-    print(f"{indicator_name} -- {response}")
+
+   
+        # Try Mistral first
+    response = await run_chain(mistral_model, user_prompt)
+    print(indicator_name, "--", response)
     return response
+ 
+       

@@ -1,8 +1,10 @@
 from fastapi import FastAPI, UploadFile, Form
+from fastapi.responses import StreamingResponse
 from pathlib import Path
 import shutil
+import io
 
-from src.orchestrator import upload_file, extract_indicator
+from src.orchestrator import upload_file, extract_indicator,results_to_csv_bytes
 from src.llm_response import get_response
 
 app = FastAPI()
@@ -36,8 +38,10 @@ async def extract_indicators(
         doc_ids=[doc_id],
         get_response=get_response
     )
-
-    return {
-        "status": "extraction_complete",
-        "results": results
-    }
+    csv_bytes = await results_to_csv_bytes(results)
+    csv_stream = io.BytesIO(csv_bytes)
+    return StreamingResponse(
+        csv_stream,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={doc_id}_indicators.csv"}
+    )

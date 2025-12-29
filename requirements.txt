@@ -11,3 +11,5 @@ fastapi
 "uvicorn[standard]"
 pydantic
 python-multipart
+langchain_mistralai
+pandas
