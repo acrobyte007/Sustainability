@@ -14,7 +14,7 @@ UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 
-@app.post("/organizations/onboard")
+@app.post("/organizations_onboard")
 async def onboard_organization(
     name: str = Form(...),
     country: str = Form(None)
