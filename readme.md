@@ -80,8 +80,32 @@ Clone the repository
 Install dependencies (typically via requirements.txt or poetry/pyproject.toml)
 Start the server:
 
-Bashuvicorn main:app --reload
+Bash<br>
+uvicorn main:app --reload
 
-API will be available at http://localhost:8000
+API will be available at http://localhost:8000<br>
 OpenAPI docs: http://localhost:8000/docs
 
+Setup Instructions
+
+Clone the repository
+cd <Sustainability>
+Create a virtual environment (recommended)Bashpython -m venv venv
+source venv/bin/activate    # On Windows use `venv\Scripts\activate`
+Install dependenciesBashpip install -r requirements.txt
+Or, if using Poetry:Bashpoetry install
+Set up environment variables
+Create a .env file in the project root with required keys (example):
+LLM_API_KEY=your_api_key_here
+LLM_MODEL=gpt-4o-mini 
+
+# Vector DB (pincone)
+VECTOR_DB_API_KEY=your_vector_db_key
+
+# Optional: Database for organization metadata
+DATABASE_URL=postgresql://user:password@localhost/dbname
+Start the development serverBashuvicorn main:app --reload
+Access the API
+Server: http://localhost:8000
+Interactive docs: http://localhost:8000/docs
+OpenAPI schema: http://localhost:8000/openapi.json
