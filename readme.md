@@ -12,7 +12,7 @@ CSV Export – Returns extracted indicators in a downloadable CSV file.
 
 ## API Endpoints
 ### 1. Onboard Organization
-textPOST /organizations_onboard
+POST /organizations_onboard
 Form Data:
 
 name: string (required) – Organization name
@@ -24,7 +24,7 @@ JSON{
   "organization_id": "org_12345"
 }
 ## 2. Upload PDF Report
-textPOST /upload
+POST /upload
 Multipart Form Data:
 
 file: PDF file (required)
@@ -36,7 +36,7 @@ JSON{
   "doc_id": "report_2024.pdf"
 }
 ## 3. Extract ESRS Indicators
-textPOST /extract
+POST /extract
 Form Data:
 
 user_id: string (required)
@@ -49,7 +49,7 @@ Streams a CSV file attachment named <organization_id>_<doc_id>_esrs_indicators.c
 Contains columns for indicator name, value, unit, page reference, confidence, status, source section, and notes.
 
 ## Architecture Overview
-textPDF Upload
+PDF Upload
    ↓
 Text Extraction & Chunking → Embedding → Vector DB (upsert)
    ↓
@@ -92,7 +92,7 @@ MISTRAL_API_KEY=your_mistral_api_key <br>
 # Vector DB (pincone)
 PINECONE_API_KEY=your_vector_db_key
 
-# Optional: Database for organization metadata
+#  Database for organization metadata
 CONNECTION_STRING=postgresql://user:password@localhost/dbname<br>
 Start the development serverBashuvicorn main:app --reload <br>
 Access the API <br>
