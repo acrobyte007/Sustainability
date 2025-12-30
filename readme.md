@@ -69,43 +69,32 @@ FUNDAMENTAL_RAG_SPEC – Defines all supported ESRS indicators, their questions,
 
 ## Requirements
 
-Python 3.9+
-FastAPI
-Uvicorn (for running)
-Dependencies for PDF text extraction, embeddings, vector DB, and LLM inference (see project structure)
+Python 3.9+ <br>
+FastAPI <br>
+Uvicorn (for running) <br>
+Dependencies for PDF text extraction, embeddings, vector DB, and LLM inference (see project structure) <br>
 
-Local Development
 
-Clone the repository
-Install dependencies (typically via requirements.txt or poetry/pyproject.toml)
-Start the server:
 
-Bash<br>
-uvicorn main:app --reload
+## Setup Instructions
 
-API will be available at http://localhost:8000<br>
-OpenAPI docs: http://localhost:8000/docs
-
-Setup Instructions
-
-Clone the repository
-cd <Sustainability>
-Create a virtual environment (recommended)Bashpython -m venv venv
-source venv/bin/activate    # On Windows use `venv\Scripts\activate`
-Install dependenciesBashpip install -r requirements.txt
-Or, if using Poetry:Bashpoetry install
-Set up environment variables
+Clone the repository<br>
+cd <Sustainability> <br>
+Create a virtual environment (recommended)Bashpython -m venv venv <br>
+source venv/bin/activate    # On Windows use `venv\Scripts\activate` <br>
+Install dependencies <br>
+Bash <br>
+pip install -r requirements.txt <br>
+Set up environment variables <br>
 Create a .env file in the project root with required keys (example):
-LLM_API_KEY=your_api_key_here
-LLM_MODEL=gpt-4o-mini 
+MISTRAL_API_KEY=your_mistral_api_key <br>
 
 # Vector DB (pincone)
-VECTOR_DB_API_KEY=your_vector_db_key
+PINECONE_API_KEY=your_vector_db_key
 
 # Optional: Database for organization metadata
-DATABASE_URL=postgresql://user:password@localhost/dbname
-Start the development serverBashuvicorn main:app --reload
-Access the API
-Server: http://localhost:8000
-Interactive docs: http://localhost:8000/docs
-OpenAPI schema: http://localhost:8000/openapi.json
+CONNECTION_STRING=postgresql://user:password@localhost/dbname<br>
+Start the development serverBashuvicorn main:app --reload <br>
+Access the API <br>
+Server: http://localhost:8000<br>
+Interactive docs: http://localhost:8000/docs<br>
