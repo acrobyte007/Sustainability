@@ -1,4 +1,4 @@
-# ESRS Indicator Extraction API
+# ESG Indicator Extraction API
 A FastAPI-based web service for automated extraction of key ESRS (European Sustainability Reporting Standards) indicators from sustainability reports in PDF format.
 This tool enables organizations to upload their sustainability reports, process them using Retrieval-Augmented Generation (RAG) with vector embeddings, and receive structured ESRS indicator data in CSV format.
 ## Features

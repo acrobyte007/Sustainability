@@ -1,6 +1,4 @@
 from pathlib import Path
-import pandas as pd
-import io
 from src.text_extraction import extract_text_from_pdf
 from src.embeddings import embed_sentences
 from database.vector_db import upsert_document_vectors, query_vector_index
