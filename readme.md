@@ -35,7 +35,7 @@ JSON{
   "status": "upload_complete",
   "doc_id": "report_2024.pdf"
 }
-## 3. Extract ESRS Indicators
+## 3. Extract ESG Indicators
 POST /extract
 Form Data:
 
@@ -45,7 +45,7 @@ organization_id: string (required) – From onboarding
 
 Response:
 
-Streams a CSV file attachment named <organization_id>_<doc_id>_esrs_indicators.csv
+Returns a CSV file attachment named <organization_id>_<doc_id>_esrs_indicators.csv
 Contains columns for indicator name, value, unit, page reference, confidence, status, source section, and notes.
 
 ## Architecture Overview
@@ -69,7 +69,7 @@ FUNDAMENTAL_RAG_SPEC – Defines all supported ESRS indicators, their questions,
 
 ## Requirements
 
-Python 3.9+ <br>
+Python 3.12+ <br>
 FastAPI <br>
 Uvicorn (for running) <br>
 Dependencies for PDF text extraction, embeddings, vector DB, and LLM inference (see project structure) <br>
