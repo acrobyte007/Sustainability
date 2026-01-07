@@ -49,7 +49,7 @@ Returns a CSV file attachment named <organization_id>_<doc_id>_esrs_indicators.c
 Contains columns for indicator name, value, unit, page reference, confidence, status, source section, and notes.
 
 ## Architecture Overview
-![Alt text](Sustainability/Project_Structure.gif "Project Structure")
+![Alt text](Project_Structure.gif "Project Structure")
 PDF Upload
    ↓
 Text Extraction & Chunking → Embedding → Vector DB (upsert)
