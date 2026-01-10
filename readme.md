@@ -25,6 +25,9 @@ Perfect for sustainability analysts, ESG rating agencies, compliance teams, and 
 - **PDF Processing**: (PyMuPDF / pdfplumber / pymupdf expected)
 - **Search**: BM25 + Vector similarity hybrid
 
+## Workflow
+![Alt text](Architecture.png)
+
 ## Project Structure
 ```bash
 Sustainability/
@@ -45,8 +48,7 @@ Sustainability/
 ├── .gitignore                  # Git ignore patterns
 └── README.md                   # This file
 
-Architecture.png
-![Alt text](Architecture.png)
+
 # 1. Clone the repository
 git clone https://github.com/acrobyte007/Sustainability
 cd Sustainability
@@ -62,6 +64,7 @@ export CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
 
 # 5. Run the application
 uvicorn main:app --reload
+
 
 
 
