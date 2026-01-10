@@ -25,6 +25,25 @@ Perfect for sustainability analysts, ESG rating agencies, compliance teams, and 
 - **PDF Processing**: (PyMuPDF / pdfplumber / pymupdf expected)
 - **Search**: BM25 + Vector similarity hybrid
 
+## Project Structure
+
+Sustainability/
+├── main.py                     # FastAPI app entry point & route definitions
+├── src/
+│   ├── orchestrator.py         # Core pipeline: upload → extraction → processing
+│   ├── calculation.py          # ESG metric calculations & CSV export logic
+│   ├── llm_response.py         # LLM prompt engineering & response parsing
+│   ├── embeddings.py           # Text embedding generation utilities
+│   ├── text_extraction.py      # PDF parsing, cleaning & chunking logic
+│   └── prompts/
+│       └── questions.py        # ESG indicators definitions + question templates
+├── database/
+│   ├── database.py             # Async SQLAlchemy models & CRUD operations
+│   ├── utils.py                # Text preprocessing, BM25 ranking helpers
+│   └── vector_db.py            # Vector storage & hybrid retrieval logic
+├── requirements.txt            # Project dependencies
+├── .gitignore                  # Git ignore patterns
+└── README.md                   # This file
 ## Quick Start
 
 ```bash
@@ -43,5 +62,6 @@ export CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
 
 # 5. Run the application
 uvicorn main:app --reload
+
 
 
