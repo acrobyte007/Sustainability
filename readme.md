@@ -1,101 +1,45 @@
-# ESG Indicator Extraction API
-A FastAPI-based web service for automated extraction of key ESRS (European Sustainability Reporting Standards) indicators from sustainability reports in PDF format.
-This tool enables organizations to upload their sustainability reports, process them using Retrieval-Augmented Generation (RAG) with vector embeddings, and receive structured ESRS indicator data in CSV format.
-## Features
+# ESG Indicator Extractor
 
-Organization Onboarding – Register organizations with name and optional country.
-PDF Upload – Secure upload of sustainability reports (PDF only).
-Automated Indicator Extraction – Uses semantic search over document chunks + LLM validation to extract quantitative and qualitative ESRS indicators.
-Confidence Scoring – Only accepts extracted values with sufficient confidence (≥ 0.6).
-Fallback Questions – Tries alternative phrasings if initial question fails.
-CSV Export – Returns extracted indicators in a downloadable CSV file.
+Automated extraction of **ESG** (Environmental, Social, and Governance) indicators from PDF sustainability reports, annual reports, and other corporate documents.
 
-## API Endpoints
-### 1. Onboard Organization
-POST /organizations_onboard
-Form Data:
+Using semantic search + modern language models to find, extract and structure ESG metrics efficiently.
 
-name: string (required) – Organization name
-country: string (optional)
+Perfect for sustainability analysts, ESG rating agencies, compliance teams, and anyone who needs to process large volumes of ESG reports quickly.
 
-Response:
-JSON{
-  "status": "organization_onboarded",
-  "organization_id": "org_12345"
-}
-## 2. Upload PDF Report
-POST /upload
-Multipart Form Data:
+## ✨ Features
 
-file: PDF file (required)
-user_id: string (required) – Identifier for the user/session
+- Upload PDF reports → automatic text extraction & chunking
+- Semantic + BM25 hybrid search for relevant passages
+- LLM-powered structured extraction of ESG indicators
+- Pre-defined professional ESG question templates
+- Results returned in clean, analysis-ready CSV format
+- FastAPI backend with async PostgreSQL support
+- Vector embeddings for semantic retrieval
 
-Response:
-JSON{
-  "status": "upload_complete",
-  "doc_id": "report_2024.pdf"
-}
-## 3. Extract ESG Indicators
-POST /extract
-Form Data:
+## 🛠 Tech Stack
 
-user_id: string (required)
-doc_id: string (required) – Returned from upload
-organization_id: string (required) – From onboarding
+- **Backend**: FastAPI
+- **Database**: PostgreSQL (with vector extension support)
+- **Language Model**: Any LLM compatible with your preferred provider
+- **Embeddings**: Sentence Transformers / OpenAI / etc.
+- **PDF Processing**: (PyMuPDF / pdfplumber / pymupdf expected)
+- **Search**: BM25 + Vector similarity hybrid
 
-Response:
+## Quick Start
 
-Returns a CSV file attachment named <organization_id>_<doc_id>_esrs_indicators.csv
-Contains columns for indicator name, value, unit, page reference, confidence, status, source section, and notes.
+```bash
+# 1. Clone the repository
+git clone https://github.com/yourusername/esg-extractor.git
+cd esg-extractor
 
-## Architecture Overview
-![Alt text](Architecture.png "Project Structure")
-PDF Upload
-   ↓
-Text Extraction & Chunking → Embedding → Vector DB (upsert)
-   ↓
-For each ESRS indicator:
-   → Embed question
-   → Retrieve relevant chunks (semantic search)
-   → Ask LLM (with context) → Validate confidence & unit
-   → Fallback to alternative questions if needed
-   ↓
-Aggregate results → Calculate/Format → Export to CSV
-## Key Components
+# 2. Install dependencies
+pip install -r requirements.txt
 
-FastAPI – Async web framework
-Vector Database – Stores document embeddings per user (namespaced)
-RAG Pipeline – Combines retrieval + LLM generation with confidence thresholding
-FUNDAMENTAL_RAG_SPEC – Defines all supported ESRS indicators, their questions, units, and alternatives
+# 3. Set PostgreSQL connection string
+export CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
 
-## Requirements
+# 4. (Optional) Create & initialize database
+# python -m database.init_db   # if you have init script
 
-Python 3.12+ <br>
-FastAPI <br>
-Uvicorn (for running) <br>
-Dependencies for PDF text extraction, embeddings, vector DB, and LLM inference (see project structure) <br>
-
-
-
-## Setup Instructions
-
-Clone the repository<br>
-cd <Sustainability> <br>
-Create a virtual environment (recommended)Bashpython -m venv venv <br>
-source venv/bin/activate    # On Windows use `venv\Scripts\activate` <br>
-Install dependencies <br>
-Bash <br>
-pip install -r requirements.txt <br>
-Set up environment variables <br>
-Create a .env file in the project root with required keys (example):
-MISTRAL_API_KEY=your_mistral_api_key <br>
-
-# Vector DB (pincone)
-PINECONE_API_KEY=your_vector_db_key
-
-#  Database for organization metadata
-CONNECTION_STRING=postgresql://user:password@localhost/dbname<br>
-Start the development serverBashuvicorn main:app --reload <br>
-Access the API <br>
-Server: http://localhost:8000<br>
-Interactive docs: http://localhost:8000/docs<br>
+# 5. Run the application
+uvicorn main:app --reload
