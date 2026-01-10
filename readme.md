@@ -29,7 +29,7 @@ Perfect for sustainability analysts, ESG rating agencies, compliance teams, and 
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/esg-extractor.git
+git clone https://github.com/acrobyte007/Sustainability
 cd esg-extractor
 
 # 2. Install dependencies
@@ -43,3 +43,4 @@ export CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
 
 # 5. Run the application
 uvicorn main:app --reload
+
