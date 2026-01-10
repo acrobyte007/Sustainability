@@ -47,8 +47,9 @@ Sustainability/
 ├── requirements.txt            # Project dependencies
 ├── .gitignore                  # Git ignore patterns
 └── README.md                   # This file
-
-
+```
+## Setup
+``` bash
 # 1. Clone the repository
 git clone https://github.com/acrobyte007/Sustainability
 cd Sustainability
@@ -56,13 +57,14 @@ cd Sustainability
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Set PostgreSQL connection string
-export CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
+# 3. Set PostgreSQL connection string in env file
+ CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
+ MISTRAL_API_KEY="your_mistral_api_key"
+ PINCONE_API_KEY="your_pincere_api_key"
 
-# 4. (Optional) Create & initialize database
-# python -m database.init_db   # if you have init script
-
-# 5. Run the application
+# 4. Create the database tables
+python database/database.py
+# 4. Run the application
 uvicorn main:app --reload
 
 
