@@ -26,7 +26,7 @@ Perfect for sustainability analysts, ESG rating agencies, compliance teams, and 
 - **Search**: BM25 + Vector similarity hybrid
 
 ## Project Structure
-
+```bash
 Sustainability/
 ├── main.py                     # FastAPI app entry point & route definitions
 ├── src/
@@ -62,6 +62,7 @@ export CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
 
 # 5. Run the application
 uvicorn main:app --reload
+
 
 
 
