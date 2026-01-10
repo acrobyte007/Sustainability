@@ -44,8 +44,9 @@ Sustainability/
 ├── requirements.txt            # Project dependencies
 ├── .gitignore                  # Git ignore patterns
 └── README.md                   # This file
-## Quick Start
 
+Architecture.png
+![Alt text](Architecture.png)
 # 1. Clone the repository
 git clone https://github.com/acrobyte007/Sustainability
 cd Sustainability
@@ -61,6 +62,7 @@ export CONNECTION_STRING="postgresql://user:password@localhost:5432/esg_db"
 
 # 5. Run the application
 uvicorn main:app --reload
+
 
 
 
