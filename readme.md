@@ -19,7 +19,8 @@ Perfect for sustainability analysts, ESG rating agencies, compliance teams, and 
 ## 🛠 Tech Stack
 
 - **Backend**: FastAPI
-- **Database**: PostgreSQL (with vector extension support)
+- **Database**: PostgreSQL
+- **Vector Database**:Pinecone
 - **Language Model**: Any LLM compatible with your preferred provider
 - **Embeddings**: Sentence Transformers / OpenAI / etc.
 - **PDF Processing**: (PyMuPDF / pdfplumber / pymupdf expected)
@@ -66,6 +67,7 @@ pip install -r requirements.txt
 python database/database.py
 # 4. Run the application
 uvicorn main:app --reload
+
 
 
 
