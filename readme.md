@@ -22,8 +22,8 @@ Perfect for sustainability analysts, ESG rating agencies, compliance teams, and 
 - **Database**: PostgreSQL
 - **Vector Database**:Pinecone
 - **Language Model**: Mistral
-- **Embeddings**: Sentence Transformers / OpenAI / etc.
-- **PDF Processing**: (PyMuPDF / pdfplumber / pymupdf expected)
+- **Embeddings**: Sentence Transformers
+- **PDF Processing**: PyMuPDF 
 - **Search**: BM25 + Vector similarity hybrid
 
 ## Workflow
@@ -67,6 +67,7 @@ pip install -r requirements.txt
 python database/database.py
 # 4. Run the application
 uvicorn main:app --reload
+
 
 
 
